@@ -6,14 +6,14 @@ indicator('Long Term Swing System', overlay=true)
 
 // EMA Settings
 
-dbias_ema = input(27, 'Fast EMA')
-wbias_ema = input(27, 'Slow EMA')
+dbias_ema = input(27, 'Daily Bias Candle EMA')
+wbias_ema = input(27, 'Weekly Bias Candle EMA')
 
-daily_ema = input(title='Daily EMA Length', defval=27)
-weekly_ema = input(title='Weekly EMA Length', defval=27)
-monthly_ema = input(title='Monthly EMA Length', defval=27)
-quarterly_ema = input(title='Quarterly EMA Length', defval=27)
-yearly_ema = input(title='Yearly EMA Length', defval=27)
+daily_ema = input(title='Daily Trigger Length', defval=27)
+weekly_ema = input(title='Weekly Trigger Length', defval=27)
+monthly_ema = input(title='Monthly Trigger Length', defval=27)
+quarterly_ema = input(title='Quarterly Trigger Length', defval=27)
+yearly_ema = input(title='Yearly Trigger Length', defval=27)
 // Time Settings
 
 dtime_warp = input.string("D", 'Fast Time Frame', options=["off", "1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "4h", "D", "W", "M", "3M", "Y"])
@@ -95,7 +95,7 @@ else
     dailychart := true
 
 tickertype = 'stock'
-if syminfo.type == 'stock'
+if syminfo.type == 'stock' or syminfo.type =='dr'
     tickertype := 'stock'
 else
     tickertype := 'other'
