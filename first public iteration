@@ -144,6 +144,16 @@ else
 
 vwapcolor = vwapsentiment ? #2ad9f8 : #fc4792
 
+// Chop Detector
+
+source = close
+rsi_up = ta.rma(math.max(ta.change(source), 0), 14)
+rsi_down = ta.rma(-math.min(ta.change(source), 0), 14)
+rsi = rsi_down == 0 ? 100 : rsi_up == 0 ? 0 : 100 - (100 / (1 + rsi_up / rsi_down))
+chop = rsi > 40 and rsi < 60 //and rsi[1] > 40 and rsi[1] < 60
+tight_chop =  rsi > 45 and rsi < 55 //and rsi[1] > 45 and rsi[1] < 55
+
+
 // Triggers
 
 price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
@@ -350,6 +360,11 @@ plotcandle(open,high,low,close, title = 'Weekly Candle Colors', color = wbias_ca
 
 plot(vwapValue, title="VWAP", color=vwapcolor , style=plot.style_stepline, display=display.all - display.status_line)
 
+// Plot Chop Detector
+
+plotshape(chop, style=shape.square, color=#fc565673, location=location.top, display=display.all - display.status_line)
+plotshape(tight_chop, style=shape.square, color=color.red, location=location.top, display=display.all - display.status_line)
+
 // Plot Signals
     // -- Daily Opposite Signals
 
@@ -369,6 +384,7 @@ plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and wbullish
 plotshape(wbullish_conviction_confirmed and wshow_conviction_arrows, style=shape.labelup, color=wbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.normal, display=display.all - display.status_line)
 plotshape(wbearish_conviction_confirmed and wshow_conviction_arrows, style=shape.labeldown, color=wbearish_conviction_color, location=location.abovebar, text="STFR", textcolor=color.white, size=size.normal, display=display.all - display.status_line)
 
+    // -- Plot Info Table
 var tbl = table.new(position.bottom_left, 1, 10)
 
 if barstate.islast and show_info
