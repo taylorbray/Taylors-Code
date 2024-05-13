@@ -1,0 +1,220 @@
+//@version=5
+strategy('Investment Allocation System', pyramiding=10000, calc_on_every_tick=true, default_qty_type=strategy.cash, default_qty_value=1000, initial_capital=1000,  overlay=true)
+
+ticker = ticker.new(syminfo.prefix, syminfo.ticker, session=session.extended)
+price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+regular_contribution_price = input.int(defval=184, title='Regular Contribution: $')
+regular_contribution = (regular_contribution_price / price)
+
+dipbuyfactor = input.int(defval=2, title='Dipbuy Size Multiplier')
+drawdownmultiplier = input.int(defval=3, title='Drawdown Multiplier')
+close_price = input.float(defval = 5220.83, title='Last Closing Price')
+lookback = input.int(defval=80, title='Trailing High Lookback')
+
+double_dip = input(false, title='Double Dip') // loses some alpha, disable
+
+show_trails = input(false, 'Show Dip Buy Trail Levels')
+
+start = input.time(defval=timestamp('01 Jun 1997 13:30 +0000'), title='Backtesting Start Time')
+end = input.time(defval=timestamp('30 Sep 2099 19:30 +0000'), title='Backtesting End Time')
+
+time_cond = time > start and time < end
+newATH = false
+newrelative = false
+
+var dipboughthalf = false
+var dipbought1 = false
+var dipbought2 = false
+var dipbought3 = false
+var dipbought4 = false
+var dipbought5 = false
+
+var dbldipbought1 = false
+var dbldipbought2 = false
+var dbldipbought3 = false
+var dbldipbought4 = false
+var dbldipbought5 = false
+
+ph = ta.highest(220)
+trailing_high = ta.highest(lookback)
+
+plot(ph, title='Long High Lookback', style=plot.style_line, linewidth=2, color= ph[0] > ph[1] ? #f8e43300 : #ff5252a4, display=display.all - display.status_line)
+if ph[0] > ph[1] 
+    newATH := true
+    newrelative := false
+
+    dipboughthalf := false
+    dipbought1 := false
+    dipbought2 := false
+    dipbought3 := false
+    dipbought4 := false
+    dipbought5 := false
+    
+    dbldipbought1 := false
+    dbldipbought2 := false
+    dbldipbought3 := false
+    dbldipbought4 := false
+    dbldipbought5 := false
+else
+    newATH := false
+
+
+plot(trailing_high, title='Short High Lookback', style=plot.style_line, linewidth=2, color= trailing_high < ph and not newATH ? #8307f7fa : #e252ff00, display=display.all - display.status_line)
+
+
+trailhalf = ph  * 0.97
+trail1 = ph  * 0.90
+trail2 = ph  * 0.80
+trail3 = ph  * 0.70
+trail4 = ph  * 0.60
+trail5 = ph  * 0.50
+
+
+
+var float totalinput = 0
+var float totaldb = 0
+
+var float totalhalf = 0
+var float totalt1 = 0
+var float totalt2 = 0
+var float totalt3 = 0
+var float totalt4 = 0
+var float totalt5 = 0
+
+
+plot(trailhalf, title='R', style=plot.style_line, linewidth=1, color= show_trails ? #e9e9e963 : #ffffff00, display=display.all - display.status_line)
+plot(trail1, title='-10%', style=plot.style_line, linewidth=2, color= show_trails ? #3cb13c57 : #ffffff00, display=display.all - display.status_line)
+plot(trail2, title='-20%', style=plot.style_line, linewidth=2, color= show_trails ? #3cb13c83 : #ffffff00, display=display.all - display.status_line)
+plot(trail3, title='-30%', style=plot.style_line, linewidth=2, color= show_trails ? #3cb13cad : #ffffff00, display=display.all - display.status_line)
+plot(trail4, title='-40%', style=plot.style_line, linewidth=2, color= show_trails ? #3cb13ce0 : #ffffff00, display=display.all - display.status_line)
+plot(trail5, title='-50%', style=plot.style_line, linewidth=2, color= show_trails ? #fdd41ec0 : #ffffff00, display=display.all - display.status_line)
+
+show_trailing_high = false
+
+if trailing_high[0] > trailing_high[1]
+    newrelative := true
+    show_trailing_high := true
+else
+    newrelative := false
+    show_trailing_high := false
+
+t1_multiplier_setting = drawdownmultiplier
+t2_multiplier_setting = t1_multiplier_setting * drawdownmultiplier
+t3_multiplier_setting = t2_multiplier_setting * drawdownmultiplier
+t4_multiplier_setting = t3_multiplier_setting * drawdownmultiplier
+t5_multiplier_setting = t4_multiplier_setting * drawdownmultiplier
+
+//if trailing_high[0] < trail3[0] and newrelative
+   // dipbought1 := false
+   // dipbought2 := false
+    //dipbought3 := false
+    // dipbought4 := false
+    //dipbought5 := false
+
+if price <= trailhalf and not dipboughthalf and time_cond 
+    strategy.entry("regular", strategy.long, regular_contribution, comment='R: + '+str.tostring(str.format("{0,number,currency}", regular_contribution_price)))
+
+    totalhalf := totalhalf + regular_contribution_price
+    totalinput := totalinput + regular_contribution_price
+    totaldb := totaldb + 1
+
+    dipboughthalf := true
+
+if price < trail1 and not dipbought1 and time_cond
+    strategy.entry("buy1", strategy.long, (regular_contribution * dipbuyfactor), comment='BUY1: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * dipbuyfactor))))
+
+    totalt1 := totalt1 + (regular_contribution_price * dipbuyfactor)
+    totalinput := totalinput + (regular_contribution_price * dipbuyfactor)
+    totaldb := totaldb + 1
+
+    dipbought1 := true
+
+
+if price < trail2 and not dipbought2 and time_cond
+    strategy.entry("buy2", strategy.long, (regular_contribution * (dipbuyfactor * t2_multiplier_setting)), comment='BUY2: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * (dipbuyfactor * t2_multiplier_setting )))))
+
+    totalt2 := totalt2 + (regular_contribution_price* (dipbuyfactor * t2_multiplier_setting))
+    totalinput := totalinput + (regular_contribution_price* (dipbuyfactor * t2_multiplier_setting))
+    totaldb := totaldb + 1
+
+    dipbought2 := true
+
+if price < trail3 and not dipbought3 and time_cond
+    strategy.entry("buy3", strategy.long, (regular_contribution * (dipbuyfactor * t3_multiplier_setting)), comment='BUY3: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * (dipbuyfactor * t3_multiplier_setting )))))
+
+    totalt3 := totalt3 + (regular_contribution_price* (dipbuyfactor * t3_multiplier_setting)),
+    totalinput := totalinput + (regular_contribution_price* (dipbuyfactor * t3_multiplier_setting)),
+    totaldb := totaldb + 1
+
+    dipbought3 := true
+
+if price < trail4 and not dipbought4 and time_cond
+    strategy.entry("buy4", strategy.long,  (regular_contribution * (dipbuyfactor * t4_multiplier_setting)), comment='BUY4: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * (dipbuyfactor * t4_multiplier_setting )))))
+
+    totalt4 := totalt4  + (regular_contribution_price * (dipbuyfactor * t4_multiplier_setting))
+    totalinput := totalinput + (regular_contribution_price * (dipbuyfactor * t4_multiplier_setting))
+    totaldb := totaldb + 1
+
+    dipbought4 := true
+
+if price < trail5 and not dipbought5 and time_cond
+    strategy.entry("buy5", strategy.long, (regular_contribution * (dipbuyfactor * t5_multiplier_setting)), comment='BUY5: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * (dipbuyfactor * t5_multiplier_setting )))))
+
+    totalt5 := totalt5  + (regular_contribution_price * (dipbuyfactor * t5_multiplier_setting))
+    totalinput := totalinput + (regular_contribution_price * (dipbuyfactor * t5_multiplier_setting))
+    totaldb := totaldb + 1
+
+    dipbought5 := true
+
+// DOUBLES
+if double_dip 
+    if price < trail1 and price > trail2 and not dbldipbought1 and dipbought1 and time_cond and newrelative
+        strategy.entry("rbuy1", strategy.long, (regular_contribution* (dipbuyfactor * t1_multiplier_setting)), comment='DOUBLE DIP3: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * (dipbuyfactor * t1_multiplier_setting )))))
+
+        totalt3 := totalt3 + (regular_contribution_price * (dipbuyfactor * t1_multiplier_setting))
+        totalinput := totalinput + (regular_contribution_price * (dipbuyfactor * t1_multiplier_setting))
+        totaldb := totaldb + 1
+
+        dbldipbought1 := true
+
+    if price < trail2 and price > trail3 and not dbldipbought2 and dipbought2 and time_cond and newrelative
+        strategy.entry("rbuy2", strategy.long, (regular_contribution* (dipbuyfactor * t2_multiplier_setting)), comment='DOUBLE DIP2: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * (dipbuyfactor * t2_multiplier_setting)))))
+
+        totalt2 := totalt2 + (regular_contribution_price * (dipbuyfactor * t2_multiplier_setting))
+        totalinput := totalinput + (regular_contribution_price * (dipbuyfactor * t2_multiplier_setting))
+        totaldb := totaldb + 1
+
+        dbldipbought2 := true
+
+    if price < trail3 and price > trail4 and not dbldipbought3 and dipbought3 and time_cond and newrelative
+        strategy.entry("rbuy3", strategy.long, (regular_contribution* (dipbuyfactor * t3_multiplier_setting)), comment='DOUBLE DIP1: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * (dipbuyfactor * t3_multiplier_setting)))))
+
+        totalt1 := totalt1 + (regular_contribution_price * (dipbuyfactor * t3_multiplier_setting)),
+        totalinput := totalinput + (regular_contribution_price * (dipbuyfactor * t3_multiplier_setting)),
+        totaldb := totaldb + 1
+
+        dbldipbought3 := true
+    
+var tbl = table.new(position.bottom_right, 1, 11)
+
+if barstate.islast
+    table.cell(tbl, 0, 0, 'Total Input: ' + str.tostring(str.format("{0,number,currency}", totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#bff6fd63)
+    table.cell(tbl, 0, 1, 'Investment Value: ' + str.tostring(str.format("{0,number,currency}", strategy.netprofit+totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f7e)
+    table.cell(tbl, 0, 2, 'Profit/Input Ratio:' + str.tostring(str.format('{0,number,#.##}', strategy.netprofit/totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f59)
+    table.cell(tbl, 0, 3, '________________________________', text_color=#fffcfce3, text_size =size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 4, '# Dips Bought: ' + str.tostring(totaldb), text_color=#fffcfce3, text_size =size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 5, 'Total R: ' + str.tostring(str.format("{0,number,currency}", totalhalf)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 6, 'Total DB1: ' + str.tostring(str.format("{0,number,currency}", totalt1)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 7, 'Total DB2: ' + str.tostring(str.format("{0,number,currency}", totalt2)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 8, 'Total DB3: ' + str.tostring(str.format("{0,number,currency}", totalt3)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 9, 'Total DB4: ' + str.tostring(str.format("{0,number,currency}", totalt4)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 10, 'Total DB5: ' + str.tostring(str.format("{0,number,currency}", totalt5)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    
+
+
+if price > close_price
+    strategy.close_all()
+
+
+
