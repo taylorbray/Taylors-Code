@@ -30,10 +30,10 @@ show_info = input(true, 'Show Calculation Info')
 show_triggers = input(false, 'Show Triggers')
 show_opposite = input(true, "Show Opposing Daily Signals")
 show_candle_bias = input(true, "Show Candle Bias")
-
+show_chop = input(true, "Show Chop Detector (BETA)")
 // VWAP Settings
 vwap_factor = input(true, title='Color VWAP by Price')
-hidevwap = input(false, title='Hide VWAP')
+showvwap = input(true, title='Enable VWAP')
 vwap_override = input.string('off', 'VWAP Anchor Override', options=['off',"D", "W", "M", "Q", "Y"])
 // Color Settings
 
@@ -102,8 +102,8 @@ else
 
 // Earnings VWAP
 
-if barstate.islast and ta.cum(volume) == 0
-    runtime.error("No volume is provided by the data vendor.")
+//if barstate.islast and ta.cum(volume) == 0
+    //runtime.error("No volume is provided by the data vendor.")
 
 float vwapValue = na
 isNewPeriod = true
@@ -131,7 +131,7 @@ isEsdAnchor = anchor == "Earnings"
 if na(src[1]) and not isEsdAnchor 
 	isNewPeriod := true
 
-if not hidevwap and dailychart
+if showvwap and dailychart
     [_vwap, _stdevUpper, _] = ta.vwap(ohlc4, isNewPeriod, 1)
 	vwapValue := _vwap
 
@@ -362,8 +362,8 @@ plot(vwapValue, title="VWAP", color=vwapcolor , style=plot.style_stepline, displ
 
 // Plot Chop Detector
 
-plotshape(chop, style=shape.square, color=#fc565673, location=location.top, display=display.all - display.status_line)
-plotshape(tight_chop, style=shape.square, color=color.red, location=location.top, display=display.all - display.status_line)
+plotshape(chop, style=shape.square, color= show_chop ? #fc565673 : #ffffff00, location=location.top, display=display.all - display.status_line)
+plotshape(tight_chop, style=shape.square, color=show_chop ? color.red : #ffffff00, location=location.top, display=display.all - display.status_line)
 
 // Plot Signals
     // -- Daily Opposite Signals
