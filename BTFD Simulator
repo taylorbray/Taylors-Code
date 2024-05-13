@@ -1,5 +1,5 @@
 //@version=5
-strategy('Investment Allocation System', pyramiding=10000, calc_on_every_tick=true, default_qty_type=strategy.cash, default_qty_value=1000, initial_capital=1000,  overlay=true)
+strategy('Investment Allocation System', pyramiding=1000, calc_on_every_tick=true, default_qty_type=strategy.cash, default_qty_value=1000, initial_capital=1000,  overlay=true)
 
 ticker = ticker.new(syminfo.prefix, syminfo.ticker, session=session.extended)
 price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
@@ -10,11 +10,14 @@ regular_contribution = (regular_contribution_price / price)
 dipbuyfactor = input.int(defval=2, title='Dipbuy Size Multiplier')
 drawdownmultiplier = input.int(defval=3, title='Drawdown Multiplier')
 close_price = input.float(defval = 5220.83, title='Last Closing Price')
-lookback = input.int(defval=80, title='Trailing High Lookback')
+
+slowlookback = input.int(defval=220, title='Year High Lookback')
+fastlookback = input.int(defval=80, title='Quarterly High Lookback')
 
 double_dip = input(false, title='Double Dip') // loses some alpha, disable
 
 show_trails = input(false, 'Show Dip Buy Trail Levels')
+show_info = input(false, 'Show Info')
 
 start = input.time(defval=timestamp('01 Jun 1997 13:30 +0000'), title='Backtesting Start Time')
 end = input.time(defval=timestamp('30 Sep 2099 19:30 +0000'), title='Backtesting End Time')
@@ -36,8 +39,8 @@ var dbldipbought3 = false
 var dbldipbought4 = false
 var dbldipbought5 = false
 
-ph = ta.highest(220)
-trailing_high = ta.highest(lookback)
+ph = ta.highest(slowlookback)
+trailing_high = ta.highest(fastlookback)
 
 plot(ph, title='Long High Lookback', style=plot.style_line, linewidth=2, color= ph[0] > ph[1] ? #f8e43300 : #ff5252a4, display=display.all - display.status_line)
 if ph[0] > ph[1] 
@@ -198,7 +201,7 @@ if double_dip
     
 var tbl = table.new(position.bottom_right, 1, 11)
 
-if barstate.islast
+if barstate.islast and show_info
     table.cell(tbl, 0, 0, 'Total Input: ' + str.tostring(str.format("{0,number,currency}", totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#bff6fd63)
     table.cell(tbl, 0, 1, 'Investment Value: ' + str.tostring(str.format("{0,number,currency}", strategy.netprofit+totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f7e)
     table.cell(tbl, 0, 2, 'Profit/Input Ratio:' + str.tostring(str.format('{0,number,#.##}', strategy.netprofit/totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f59)
@@ -215,6 +218,10 @@ if barstate.islast
 
 if price > close_price
     strategy.close_all()
+
+
+
+
 
 
 
