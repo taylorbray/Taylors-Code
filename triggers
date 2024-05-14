@@ -1,0 +1,62 @@
+//@taylorbray
+//Based on Saty Pivot Ribbon
+
+//@version=5
+indicator('Triggers', '', overlay=true)
+
+// Settings
+thirty_ema = input(title='Thirty Minute EMA Length', defval=27)
+hourly_ema = input(title='Hourly EMA Length', defval=27)
+fourhour_ema = input(title='Four Hour EMA Length', defval=27)
+daily_ema = input(title='Daily EMA Length', defval=27)
+weekly_ema = input(title='Weekly EMA Length', defval=27)
+monthly_ema = input(title='Monthly EMA Length', defval=27)
+quarterly_ema = input(title='Quarterly EMA Length', defval=27)
+yearly_ema = input(title='Yearly EMA Length', defval=27)
+
+//show_thirty_ema_highlight = input(true, 'Show Thirty Minute EMA Highlight')
+thirty_ema_highlight_color = input(color.rgb(61, 211, 123, 26), 'Thirty Minute EMA Highlight Color')
+
+//show_hourly_ema_highlight = input(true, 'Show Hourly EMA Highlight')
+hourly_ema_highlight_color = input(color.rgb(193, 45, 252, 19), 'Hourly EMA Highlight Color')
+
+//show_fourhour_ema_highlight = input(true, 'Show Four Hour EMA Highlight')
+fourhour_ema_highlight_color = input(color.rgb(89, 19, 252), 'Four Hour EMA Highlight Color')
+
+//show_daily_ema_highlight = input(true, 'Show Daily EMA Highlight')
+daily_ema_highlight_color = input(color.rgb(245, 223, 124, 17), 'Daily EMA Highlight Color')
+
+//show_weekly_ema_highlight = input(true, 'Show Weekly EMA Highlight')
+weekly_ema_highlight_color = input(color.rgb(247, 175, 18, 19), 'Weekly EMA Highlight Color')
+
+//show_monthly_ema_highlight = input(true, 'Show Monthly EMA Highlight')
+monthly_ema_highlight_color = input(color.rgb(193, 136, 240, 20), 'Monthly EMA Highlight Color')
+
+//show_quarterly_ema_highlight = input(true, 'Show Quarterly EMA Highlight')
+quarterly_ema_highlight_color = input(color.rgb(59, 191, 252, 20), 'Quarterly EMA Highlight Color')
+
+//show_yearly_ema_highlight = input(true, 'Show Yearly EMA Highlight')
+yearly_ema_highlight_color = input(color.rgb(255, 111, 236, 20), 'Yearly EMA Highlight Color')
+
+// Calculations
+ticker = ticker.new(syminfo.prefix, syminfo.ticker, session=session.extended)
+price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+thirty_ema_value = request.security(syminfo.tickerid, '30', ta.ema(price, thirty_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+hourly_ema_value = request.security(syminfo.tickerid, '60', ta.ema(price, hourly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+fourhour_ema_value = request.security(syminfo.tickerid, '240', ta.ema(price, fourhour_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+daily_ema_value = request.security(syminfo.tickerid, 'D', ta.ema(price, daily_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+weekly_ema_value = request.security(syminfo.tickerid, 'W', ta.ema(price, weekly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+monthly_ema_value = request.security(syminfo.tickerid, 'M', ta.ema(price, monthly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+quarterly_ema_value = request.security(syminfo.tickerid, '3M', ta.ema(price, quarterly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+yearly_ema_value = request.security(syminfo.tickerid, '12M', ta.ema(price,yearly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+// Create plots
+thirty_ema_plot = plot(thirty_ema_value, 'Thirty EMA', thirty_ema_highlight_color, linewidth = 2)
+hourly_ema_plot = plot(hourly_ema_value, 'Hourly EMA', hourly_ema_highlight_color, linewidth = 2)
+fourhour_ema_plot = plot(fourhour_ema_value, 'Four Hour EMA', fourhour_ema_highlight_color, linewidth = 2)
+daily_ema_plot = plot(daily_ema_value, 'Daily EMA', daily_ema_highlight_color, linewidth = 3)
+weekly_ema_plot = plot(weekly_ema_value, 'Weekly EMA', weekly_ema_highlight_color, linewidth = 3)
+monthly_ema_plot = plot(monthly_ema_value, 'Monthly EMA', monthly_ema_highlight_color, linewidth = 4)
+quarterly_ema_plot = plot(quarterly_ema_value,'Quarterly EMA', quarterly_ema_highlight_color, linewidth = 6)
+yearly_ema_plot = plot(yearly_ema_value, 'Yearly EMA', yearly_ema_highlight_color, linewidth = 6)
