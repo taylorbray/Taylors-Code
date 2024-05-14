@@ -1,0 +1,40 @@
+//@taylorbray
+
+//@version=5
+indicator(title='Volume Weighted Average Price', shorttitle='VWAP', overlay=true, timeframe='', timeframe_gaps=true)
+
+hideonDWM = input(false, title='Hide VWAP on 1D or Above') // hide below daily timeframe
+
+var anchor = input.string(defval = 'Quarter', title='VWAP Period', options=['Session', 'Week', 'Month', 'Earnings', 'Quarter', 'Year']) // period settings
+new_earnings = request.earnings(syminfo.tickerid, earnings.actual, barmerge.gaps_on, barmerge.lookahead_on, ignore_invalid_symbol=true) // get earnings
+
+if barstate.islast and ta.cum(volume) == 0
+    runtime.error('No volume is provided by the data vendor.') // volume na
+
+float vwap_val = na
+new_period = true
+
+new_period := switch anchor // set anchor to period setting. need to be 1to1 or wont render anything
+	'Session' => timeframe.change('D')
+	'Week' => timeframe.change('W')
+	'Month' => timeframe.change('M')
+	'Earnings' => not na(new_earnings)
+	'Quarter' => timeframe.change('3M')
+	'Year' => timeframe.change('12M')
+	=> false // reset new period detector
+
+src = input(title = 'Source', defval = ohlc4) 
+
+earnings_anchor = anchor == 'Earnings'
+
+if na(src[1]) and not earnings_anchor // new period detector
+	new_period := true
+
+if not (hideonDWM and timeframe.isdwm) //
+    [_vwap, _stdev, _] = ta.vwap(ohlc4, new_period, 1) // create vwap
+	vwap_val := _vwap
+
+vwap_color = close >= vwap_val ? #2ad9f8 : #fc4792 // assign colors to vwap based on price
+
+
+plot(vwap_val, title='VWAP', color=vwap_color , style=plot.style_stepline)
