@@ -1,0 +1,33 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © taylorbray
+
+//@version=5
+indicator('Short Term Breadth Indicator', overlay=false)
+
+[open1, high1, low1, close1, ema1, ema2] = request.security(ticker.new('INDEX', 'S5TW'), 'D', [open, high, low, close, ta.ema(close, 10), ta.ema(close, 21)])
+
+plot1 = plot(ema1, 'Fast EMA', color=#ffffff00, display=display.all - display.status_line)
+plot2 = plot(ema2, 'Fast EMA', color=#ffffff00, display=display.all - display.status_line)
+
+cross_under = ta.crossunder(ema1, ema2)
+sell_condition = cross_under and close1 > 50
+buy_condition = close1 <= 30 or open1 <= 30 
+
+
+
+candle_color = buy_condition ? #42af27 : #7e7e7e 
+
+if sell_condition
+    candle_color := #a72424
+
+plotshape(close1, 'Bear Signals', shape.triangledown, location.top, color= sell_condition ? #c02929 : #ffffff00, size=size.normal, display=display.all - display.status_line)
+
+plotcandle(open1, high1, low1, close1, title='Breadth', color=candle_color, wickcolor=candle_color, bordercolor=candle_color, display=display.all - display.status_line)
+
+line1= hline(30, 'Overbought1', color=#ffffff00, linewidth=2, display=display.none)
+line2= hline(20, 'Oversold2', color=#ffffff00, linewidth=2, display=display.none)
+line3= hline(20, 'Oversold3', color=#ffffff00, linewidth=2, display=display.none)
+line4= hline(0, 'Oversold4', color=#ffffff00, linewidth=2, display=display.none)
+
+fill(line1, line2, color=#42af272a, display=display.none) 
+fill(line3, line4, color=#42af2746, display=display.none) 
