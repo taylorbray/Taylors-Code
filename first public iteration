@@ -4,28 +4,27 @@
 indicator('Long Term Swing System', overlay=true)
 
 
+
+// Time Settings
+
+dtime_warp = input.string("D", 'Fast Time Frame', options=["off", "1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "4h", "D", "W", "M", "3M", "Y"])
+wtime_warp = input.string("W", 'Slow Time Frame', options=["off", "1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "4h", "D", "W", "M", "3M", "Y"])
 // EMA Settings
 
 dbias_ema = input(27, 'Daily Bias Candle EMA')
 wbias_ema = input(27, 'Weekly Bias Candle EMA')
 
-daily_ema = input(title='Daily Trigger Length', defval=27)
-weekly_ema = input(title='Weekly Trigger Length', defval=27)
-monthly_ema = input(title='Monthly Trigger Length', defval=27)
-quarterly_ema = input(title='Quarterly Trigger Length', defval=27)
-yearly_ema = input(title='Yearly Trigger Length', defval=27)
-// Time Settings
-
-dtime_warp = input.string("D", 'Fast Time Frame', options=["off", "1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "4h", "D", "W", "M", "3M", "Y"])
-wtime_warp = input.string("W", 'Slow Time Frame', options=["off", "1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "4h", "D", "W", "M", "3M", "Y"])
-
 //var anchor = input.string(defval = "Earnings", title='VWAP Period - Use Quarter/Year for non-stock tickers', options=['Earnings', 'Quarter', 'Year'])
 var anchor = 'Earnings'
 new_earnings = request.earnings(syminfo.tickerid, earnings.actual, barmerge.gaps_on, barmerge.lookahead_on, ignore_invalid_symbol=true)
-// Settings
 
 ticker = ticker.new(syminfo.prefix, syminfo.ticker, session=session.extended)
 
+[open1, high1, low1, close1, ema1, ema2] = request.security(ticker.new('INDEX', 'S5TW'), 'D', [open, high, low, close, ta.ema(close, 10), ta.ema(close, 21)])
+[open2, high2, low2, close2, ema3, ema4] = request.security(ticker.new('INDEX', 'S5TH'), 'D', [open, high, low, close, ta.ema(close, 10), ta.ema(close, 21)])
+// Settings
+
+breadthoffset = input.int(3, title='Breadth Bottom Offset')
 show_info = input(true, 'Show Calculation Info')
 show_triggers = input(false, 'Show Triggers')
 show_opposite = input(true, "Show Opposing Daily Signals")
@@ -36,6 +35,9 @@ vwap_factor = input(true, title='Color VWAP by Price')
 showvwap = input(true, title='Enable VWAP')
 vwap_override = input.string('off', 'VWAP Anchor Override', options=['off',"D", "W", "M", "Q", "Y"])
 // Color Settings
+
+dshow_conviction_arrows = input(true, 'Show Daily Signals')
+wshow_conviction_arrows = input(true, 'Show Weekly Signals')
 
 transition_color = input(#757575c9, 'Transition Color')
 dsignal_color = input(#6201ffb4, 'Daily Signal Color')
@@ -48,10 +50,11 @@ monthly_ema_highlight_color = input(#c188f080, 'Monthly EMA Highlight Color')
 quarterly_ema_highlight_color = input(#3bbffc85, 'Quarterly EMA Highlight Color')
 yearly_ema_highlight_color = input(#ff6fec81, 'Yearly EMA Highlight Color')
 
-
-dshow_conviction_arrows = input(true, 'Show Daily Signals')
-wshow_conviction_arrows = input(true, 'Show Weekly Signals')
-
+daily_ema = input(title='Daily Trigger Length', defval=27)
+weekly_ema = input(title='Weekly Trigger Length', defval=27)
+monthly_ema = input(title='Monthly Trigger Length', defval=27)
+quarterly_ema = input(title='Quarterly Trigger Length', defval=27)
+yearly_ema = input(title='Yearly Trigger Length', defval=27)
 
 dbullish_fast_cloud_color = input(#4caf50, 'Daily Bullish Fast Cloud Color')
 dbearish_fast_cloud_color = input(#f23645, 'Daily Bearish Fast Cloud Color')
@@ -64,8 +67,8 @@ wbullish_slow_cloud_color = input(#4caf4f5c, 'Weekly Bullish Slow Cloud Color')
 wbearish_slow_cloud_color = input(#f2364669, 'Weekly Bearish Slow Cloud Color')
 
 
-dbullish_conviction_color = input(color.rgb(19, 77, 30), 'Daily Bullish Conviction Arrow Color')
-dbearish_conviction_color = input(#5e1717, 'Daily Bearish Conviction Arrow Color')
+dbullish_conviction_color = input(#1f7c30, 'Daily Bullish Conviction Arrow Color')
+dbearish_conviction_color = input(#8d2222, 'Daily Bearish Conviction Arrow Color')
 
 wbullish_conviction_color = input(#30a026, 'Weekly Bullish Conviction Arrow Color')
 wbearish_conviction_color = input(#d62f2f, 'Weekly Bearish Conviction Arrow Color')
@@ -99,83 +102,6 @@ if syminfo.type == 'stock' or syminfo.type =='dr'
     tickertype := 'stock'
 else
     tickertype := 'other'
-
-// Earnings VWAP
-
-//if barstate.islast and ta.cum(volume) == 0
-    //runtime.error("No volume is provided by the data vendor.")
-
-float vwapValue = na
-isNewPeriod = true
-
-if vwap_override == 'off'
-    isNewPeriod := switch tickertype
-        "stock" => not na(new_earnings)
-        "other" => timeframe.change("3M")
-        => false
-else
-    isNewPeriod := switch vwap_override
-       // 'off' => ----------------- not necessary with isNewPeriod assigned false, automatically overrides. thanks TV!
-        "D" => timeframe.change("D")
-        "W" => timeframe.change("W")
-        "M" => timeframe.change("M")
-        "Earnings" => not na(new_earnings)
-        "Q" => timeframe.change("3M")
-        "Y" => timeframe.change("12M")
-        => false
-
-src = input(title = "Source", defval = ohlc4)
-
-isEsdAnchor = anchor == "Earnings"
-
-if na(src[1]) and not isEsdAnchor 
-	isNewPeriod := true
-
-if showvwap and dailychart
-    [_vwap, _stdevUpper, _] = ta.vwap(ohlc4, isNewPeriod, 1)
-	vwapValue := _vwap
-
-vwapsentiment = true
-
-if vwap_factor
-    vwapsentiment := close >= vwapValue
-else
-    vwapsentiment := true
-
-vwapcolor = vwapsentiment ? #2ad9f8 : #fc4792
-
-// Chop Detector
-
-source = close
-rsi_up = ta.rma(math.max(ta.change(source), 0), 14)
-rsi_down = ta.rma(-math.min(ta.change(source), 0), 14)
-rsi = rsi_down == 0 ? 100 : rsi_up == 0 ? 0 : 100 - (100 / (1 + rsi_up / rsi_down))
-chop = rsi > 40 and rsi < 60 //and rsi[1] > 40 and rsi[1] < 60
-tight_chop =  rsi > 45 and rsi < 55 //and rsi[1] > 45 and rsi[1] < 55
-
-
-// Triggers
-
-price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
-
-daily_ema_value = request.security(syminfo.tickerid, 'D', ta.ema(price, daily_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-weekly_ema_value = request.security(syminfo.tickerid, 'W', ta.ema(price, weekly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-monthly_ema_value = request.security(syminfo.tickerid, 'M', ta.ema(price, monthly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-quarterly_ema_value = request.security(syminfo.tickerid, '3M', ta.ema(price, quarterly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-yearly_ema_value = request.security(syminfo.tickerid, '12M', ta.ema(price,yearly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-
-if not show_triggers
-    daily_ema_value := na
-    weekly_ema_value := na
-    monthly_ema_value := na
-    quarterly_ema_value := na
-    yearly_ema_value := na
-
-daily_ema_plot = plot(daily_ema_value, 'Daily EMA', daily_ema_highlight_color, linewidth = 2)
-weekly_ema_plot = plot(weekly_ema_value, 'Weekly EMA', weekly_ema_highlight_color, linewidth = 3)
-monthly_ema_plot = plot(monthly_ema_value, 'Monthly EMA', monthly_ema_highlight_color, linewidth = 4)
-quarterly_ema_plot = plot(quarterly_ema_value,'Quarterly EMA', quarterly_ema_highlight_color, linewidth = 6)
-yearly_ema_plot = plot(yearly_ema_value, 'Yearly EMA', yearly_ema_highlight_color, linewidth = 6)
 
 // Timeframe Settings
 
@@ -272,6 +198,83 @@ wprice = request.security(ticker, wtimeframe_func(), close, gaps=barmerge.gaps_o
 wfast_conviction_ema_value = request.security(syminfo.tickerid, wtimeframe_func(), ta.ema(wprice, wfast_conviction_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
 wslow_conviction_ema_value = request.security(syminfo.tickerid, wtimeframe_func(), ta.ema(wprice, wslow_conviction_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
 
+// Earnings VWAP
+
+//if barstate.islast and ta.cum(volume) == 0
+    //runtime.error("No volume is provided by the data vendor.")
+
+float vwapValue = na
+isNewPeriod = true
+
+if vwap_override == 'off'
+    isNewPeriod := switch tickertype
+        "stock" => not na(new_earnings)
+        "other" => timeframe.change("3M")
+        => false
+else
+    isNewPeriod := switch vwap_override
+       // 'off' => ----------------- not necessary with isNewPeriod assigned false, automatically overrides. thanks TV!
+        "D" => timeframe.change("D")
+        "W" => timeframe.change("W")
+        "M" => timeframe.change("M")
+        "Earnings" => not na(new_earnings)
+        "Q" => timeframe.change("3M")
+        "Y" => timeframe.change("12M")
+        => false
+
+src = input(title = "Source", defval = ohlc4)
+
+isEsdAnchor = anchor == "Earnings"
+
+if na(src[1]) and not isEsdAnchor 
+	isNewPeriod := true
+
+if showvwap and dailychart
+    [_vwap, _stdevUpper, _] = ta.vwap(ohlc4, isNewPeriod, 1)
+	vwapValue := _vwap
+
+vwapsentiment = true
+
+if vwap_factor
+    vwapsentiment := close >= vwapValue
+else
+    vwapsentiment := true
+
+vwapcolor = vwapsentiment ? #2ad9f8 : #fc4792
+
+// Chop Detector
+
+source = close
+rsi_up = ta.rma(math.max(ta.change(source), 0), 14)
+rsi_down = ta.rma(-math.min(ta.change(source), 0), 14)
+rsi = rsi_down == 0 ? 100 : rsi_up == 0 ? 0 : 100 - (100 / (1 + rsi_up / rsi_down))
+chop = rsi > 40 and rsi < 60 //and rsi[1] > 40 and rsi[1] < 60
+tight_chop =  rsi > 45 and rsi < 55 //and rsi[1] > 45 and rsi[1] < 55
+
+
+// Triggers
+
+
+price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+daily_ema_value = request.security(syminfo.tickerid, 'D', ta.ema(price, daily_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+weekly_ema_value = request.security(syminfo.tickerid, 'W', ta.ema(price, weekly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+monthly_ema_value = request.security(syminfo.tickerid, 'M', ta.ema(price, monthly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+quarterly_ema_value = request.security(syminfo.tickerid, '3M', ta.ema(price, quarterly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+yearly_ema_value = request.security(syminfo.tickerid, '12M', ta.ema(price,yearly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+if not show_triggers
+    daily_ema_value := na
+    weekly_ema_value := na
+    monthly_ema_value := na
+    quarterly_ema_value := na
+    yearly_ema_value := na
+
+daily_ema_plot = plot(daily_ema_value, 'Daily EMA', daily_ema_highlight_color, linewidth = 2)
+weekly_ema_plot = plot(weekly_ema_value, 'Weekly EMA', weekly_ema_highlight_color, linewidth = 3)
+monthly_ema_plot = plot(monthly_ema_value, 'Monthly EMA', monthly_ema_highlight_color, linewidth = 4)
+quarterly_ema_plot = plot(quarterly_ema_value,'Quarterly EMA', quarterly_ema_highlight_color, linewidth = 6)
+yearly_ema_plot = plot(yearly_ema_value, 'Yearly EMA', yearly_ema_highlight_color, linewidth = 6)
 
 // Conviction EMAs 
     // -- Weekly First
@@ -279,7 +282,7 @@ wslow_conviction_ema_value = request.security(syminfo.tickerid, wtimeframe_func(
 wbullish_conviction = wfast_conviction_ema_value >= wslow_conviction_ema_value
 wbearish_conviction = wfast_conviction_ema_value < wslow_conviction_ema_value
 wbullish_conviction_confirmed = wbullish_conviction[0] == true and wbullish_conviction[1] == false
-wbearish_conviction_confirmed = wbearish_conviction[0] == true and wbearish_conviction[1] == false
+wbearish_conviction_confirmed = wbearish_conviction[0] == true and wbearish_conviction[1] == false and close2 > 27
 wfast_conviction_ema_plot = plot(wfast_conviction_ema_value, color=wshow_fast_conviction_ema ? wfast_conviction_ema_color : na, title='Weekly Fast Conviction EMA', display=display.all - display.status_line)
 wslow_conviction_ema_plot = plot(wslow_conviction_ema_value, color=wshow_slow_conviction_ema ? wslow_conviction_ema_color : na, title='Weekly Slow Conviction EMA', display=display.all - display.status_line)
 
@@ -368,21 +371,21 @@ plotshape(tight_chop, style=shape.square, color=show_chop ? color.red : #ffffff0
 // Plot Signals
     // -- Daily Opposite Signals
 
-plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and allow_bull_daily and dailychart, style=shape.labelup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
-plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and allow_bear_daily and dailychart, style=shape.labeldown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
+plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and allow_bull_daily and dailychart, style=shape.triangleup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
+plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and allow_bear_daily and dailychart, style=shape.triangledown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
 
     // -- Daily Signals
 
-plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and wbearish_conviction and dailychart, style=shape.labeldown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
-plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and wbullish_conviction and dailychart, style=shape.labelup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
+plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and wbearish_conviction and dailychart, style=shape.triangledown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
+plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and wbullish_conviction and dailychart, style=shape.triangleup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
 
-plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and wbearish_conviction and dailychart, style=shape.labeldown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
-plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and wbullish_conviction and dailychart, style=shape.labelup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
+plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and wbearish_conviction and dailychart, style=shape.triangledown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
+plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and wbullish_conviction and dailychart, style=shape.triangleup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
 
     // -- Weekly Signals
 
-plotshape(wbullish_conviction_confirmed and wshow_conviction_arrows, style=shape.labelup, color=wbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.normal, display=display.all - display.status_line)
-plotshape(wbearish_conviction_confirmed and wshow_conviction_arrows, style=shape.labeldown, color=wbearish_conviction_color, location=location.abovebar, text="STFR", textcolor=color.white, size=size.normal, display=display.all - display.status_line)
+plotshape(wbullish_conviction_confirmed and wshow_conviction_arrows, style=shape.triangleup, color=wbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.normal, display=display.all - display.status_line)
+plotshape(wbearish_conviction_confirmed and wshow_conviction_arrows, style=shape.triangledown, color=wbearish_conviction_color, location=location.abovebar, text="STFR", textcolor=color.white, size=size.normal, display=display.all - display.status_line)
 
     // -- Plot Info Table
 var tbl = table.new(position.bottom_left, 1, 10)
