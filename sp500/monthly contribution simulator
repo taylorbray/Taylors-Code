@@ -1,0 +1,42 @@
+//@version=5
+strategy('Monthly Contribution System', pyramiding=1000, calc_on_every_tick=true, default_qty_type=strategy.cash, default_qty_value=1000, initial_capital=1000,  overlay=true)
+
+ticker = ticker.new(syminfo.prefix, syminfo.ticker, session=session.extended)
+price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+monthopen = request.security(ticker, 'M', open)
+regular_contribution_price = 3000
+regular_contribution = (regular_contribution_price / price)
+
+close_price = input.float(defval = 5220.83, title='Last Closing Price')
+
+show_info = input(true, 'Show Info')
+
+start = input.time(defval=timestamp('01 Jun 1997 13:30 +0000'), title='Backtesting Start Time')
+end = input.time(defval=timestamp('30 Sep 2099 19:30 +0000'), title='Backtesting End Time')
+
+time_cond = time > start and time < end
+
+var float totalinput = 0
+var float totalmc = 0
+
+if time_cond and dayofweek(time) == 2 and dayofmonth(time) <= 8
+    strategy.entry("MC", strategy.long, regular_contribution/2, comment='MC: + '+str.tostring(str.format("{0,number,currency}", regular_contribution_price/2)))
+    
+    totalmc:= totalmc + 1
+    totalinput := totalinput + regular_contribution_price/2
+
+
+var tbl = table.new(position.bottom_left, 1, 12)
+
+if barstate.islast and show_info
+    //table.cell(tbl, 0, 0, 'Total Input: ' + str.tostring(str.format("{0,number,currency}", totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#bff6fd63)
+    //table.cell(tbl, 0, 1, 'Investment Value: ' + str.tostring(str.format("{0,number,currency}", strategy.netprofit+totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f7e)
+    table.cell(tbl, 0, 1, 'Profit/Input Ratio:' + str.tostring(str.format('{0,number,#.##}', strategy.netprofit/totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f59)
+    table.cell(tbl, 0, 2, '________________________________', text_color=#fffcfce3, text_size =size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 3, 'Monthly Contributions Made: ' + str.tostring(totalmc), text_color=#fffcfce3, text_size =size.large, bgcolor=#b8b5b563)
+
+if price > close_price
+    strategy.close_all()
+
+
+
