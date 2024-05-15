@@ -3,17 +3,14 @@
 //@version=5
 indicator('Short Term Swing System', overlay=true)
 
-
 // EMA Settings
 
 dbias_ema = input(27, 'Daily Bias Candle EMA')
 wbias_ema = input(27, 'Weekly Bias Candle EMA')
 
-daily_ema = input(title='Daily Trigger Length', defval=27)
-weekly_ema = input(title='Weekly Trigger Length', defval=129)
 // Time Settings
 
-dtime_warp = input.string("5m", 'Fast Time Frame', options=["off", "1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "4h", "D", "W", "M", "3M", "Y"])
+dtime_warp = input.string("1m", 'Fast Time Frame', options=["off", "1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "4h", "D", "W", "M", "3M", "Y"])
 wtime_warp = input.string("5m", 'Slow Time Frame', options=["off", "1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "4h", "D", "W", "M", "3M", "Y"])
 
 //var anchor = input.string(defval = "Earnings", title='VWAP Period - Use Quarter/Year for non-stock tickers', options=['Earnings', 'Quarter', 'Year'])
@@ -39,9 +36,6 @@ transition_color = input(#757575a6, 'Transition Color')
 dsignal_color = input(#6201ffb4, 'Daily Signal Color')
 wsignal_color = input(#ffd900, 'Weekly Signal Color')
 
-
-daily_ema_highlight_color = input(#ecececa9, 'Daily EMA Highlight Color')
-weekly_ema_highlight_color = input(#ffffffb9, 'Weekly EMA Highlight Color')
 
 
 dshow_conviction_arrows = input(false, 'Show Daily Signals')
@@ -147,16 +141,26 @@ vwapcolor = vwapsentiment ? #2ad9f8 : #fc4792
 
 price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
 
+daily_ema = input(title='Daily Trigger Length', defval=27)
+weekly_ema = input(title='Weekly Trigger Length', defval=129)
+
 daily_ema_value = request.security(syminfo.tickerid, '1', ta.ema(price, daily_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
 weekly_ema_value = request.security(syminfo.tickerid, '1', ta.ema(price, weekly_ema)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+daily_ema_highlight_color = daily_ema_value[0] >= daily_ema_value[1] ? #409c24 : #b42a2a 
+weekly_ema_highlight_color = weekly_ema_value[0] >= weekly_ema_value[1] ? #409c24 : #b42a2a 
+
 
 if not show_triggers
     daily_ema_value := na
     weekly_ema_value := na
 
-daily_ema_plot = plot(daily_ema_value, 'Daily EMA', daily_ema_highlight_color, linewidth = 1)
+daily_ema_plot = plot(daily_ema_value, 'Daily EMA', timeframe.period == '1' ? daily_ema_highlight_color : #ffffff00, linewidth = 1)
 weekly_ema_plot = plot(weekly_ema_value, 'Weekly EMA', weekly_ema_highlight_color, linewidth = 2)
 
+fill_color = daily_ema_value > weekly_ema_value ? #70ff6b17 : #ff6b6b17
+
+fill(daily_ema_plot, weekly_ema_plot, color = timeframe.period == '1' ? fill_color : #ffffff00)
 // Timeframe Settings
 
 dtimeframe_func() =>
@@ -343,21 +347,18 @@ plot(vwapValue, title="VWAP", color=vwapcolor , style=plot.style_stepline, displ
 // Plot Signals
     // -- Daily Opposite Signals
 
-plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and allow_bull_daily and dailychart, style=shape.labelup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
-plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and allow_bear_daily and dailychart, style=shape.labeldown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
+plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and allow_bull_daily and dailychart, style=shape.triangleup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.small, display=display.all - display.status_line)
+plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and allow_bear_daily and dailychart, style=shape.triangledown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.small, display=display.all - display.status_line)
 
     // -- Daily Signals
 
-plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and wbearish_conviction and dailychart, style=shape.labeldown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
-plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and wbullish_conviction and dailychart, style=shape.labelup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
-
-plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and wbearish_conviction and dailychart, style=shape.labeldown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
-plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and wbullish_conviction and dailychart, style=shape.labelup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.tiny, display=display.all - display.status_line)
+plotshape(dbearish_conviction_confirmed and dshow_conviction_arrows and wbearish_conviction and dailychart, style=shape.triangledown, color=dbearish_conviction_color, location=location.abovebar, text='STFR', textcolor=color.white, size=size.small, display=display.all - display.status_line)
+plotshape(dbullish_conviction_confirmed and dshow_conviction_arrows and wbullish_conviction and dailychart, style=shape.triangleup, color=dbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.small, display=display.all - display.status_line)
 
     // -- Weekly Signals
 
-plotshape(wbullish_conviction_confirmed and wshow_conviction_arrows, style=shape.labelup, color=wbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.normal, display=display.all - display.status_line)
-plotshape(wbearish_conviction_confirmed and wshow_conviction_arrows, style=shape.labeldown, color=wbearish_conviction_color, location=location.abovebar, text="STFR", textcolor=color.white, size=size.normal, display=display.all - display.status_line)
+plotshape(wbullish_conviction_confirmed and wshow_conviction_arrows, style=shape.triangleup, color=wbullish_conviction_color, location=location.belowbar, text='BTFD', textcolor=color.white, size=size.normal, display=display.all - display.status_line)
+plotshape(wbearish_conviction_confirmed and wshow_conviction_arrows, style=shape.triangledown, color=wbearish_conviction_color, location=location.abovebar, text="STFR", textcolor=color.white, size=size.normal, display=display.all - display.status_line)
 
 var tbl = table.new(position.bottom_left, 1, 10)
 
