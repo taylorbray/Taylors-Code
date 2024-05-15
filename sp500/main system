@@ -36,7 +36,7 @@ show_info = input(true, 'Show Calculation Info')
 show_triggers = input(false, 'Show Triggers')
 show_opposite = input(false, "Show Opposing Daily Signals")
 show_candle_bias = input(true, "Show Candle Bias")
-show_chop = input(true, "Show Chop Detector (BETA)")
+show_chop = input(false, "Show Chop Detector (BETA)") // kinda nonsense, kinda not, idk.
 // VWAP Settings
 vwap_factor = input(true, title='Color VWAP by Price')
 showvwap = input(true, title='Enable VWAP')
