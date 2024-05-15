@@ -1,23 +1,55 @@
+//@taylorbray
+
+//NEED TO KNOW: Mess with settings, see what it gives you.
+
+        // TO BEAT NEAR TERM 1990 (give or take) - present: 
+        //                         contribution_denom = 1, you can get away with 2 but shaves alpha
+        //                         dipbuyfactor = 2 
+        //                         drawdownmultipier = 3
+        
+        // TO BEAT MID TERM 1980-present: N/A, but you can get close!
+        //                          contribution_denom = 1
+        //                          dipbuyfactor = 1
+        //                          drawdownmultipier = 1
+
+        // TO BEAT LONG TERM 1950-present: N/A, but you can get close!
+        //                          contribution_denom = 1
+        //                          dipbuyfactor = at LEAST 2, the higher the bette. EXPENSIVE!
+        //                          drawdownmultipier = 1, never over 1!
+        //  
+
+
+
 //@version=5
-strategy('Investment Allocation System', pyramiding=1000, calc_on_every_tick=true, default_qty_type=strategy.cash, default_qty_value=1000, initial_capital=1000,  overlay=true)
+
+strategy('Investment Allocation System', pyramiding=1000, calc_on_every_tick=true, default_qty_type=strategy.cash, default_qty_value=1000, initial_capital=1000,  overlay=true) // idfk, mess with them or dont idk
 
 ticker = ticker.new(syminfo.prefix, syminfo.ticker, session=session.extended)
 price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+monthopen = request.security(ticker, 'M', open)
 
-regular_contribution_price = input.int(defval=184, title='Regular Contribution: $')
-regular_contribution = (regular_contribution_price / price)
 
-dipbuyfactor = input.int(defval=2, title='Dipbuy Size Multiplier')
-drawdownmultiplier = input.int(defval=3, title='Drawdown Multiplier')
-close_price = input.float(defval = 5220.83, title='Last Closing Price')
+// INPUT VALS, these cant be switched to float types, to check denominators. idk.
 
-slowlookback = input.int(defval=220, title='Year High Lookback')
-fastlookback = input.int(defval=80, title='Quarterly High Lookback')
+contribution_denom = input.int(defval=1, title='Factor to reduce monthly contribution (system default = $3000)') //reduces the amount used for a monthly contribution. val > 1 IN NEAR TERM ONLY! KILLS ALPHA PAST ~30years idk
+dipbuyfactor = input.int(defval=2, title='Dipbuy Size Multiplier') // have fun with these two
+drawdownmultiplier = input.int(defval=3, title='Drawdown Multiplier') // ^
 
-double_dip = input(false, title='Double Dip') // loses some alpha, disable
+
+
+
+
+regular_contribution_price = 3000/contribution_denom // fucking tv making me use big numbers. in dollars
+regular_contribution = (regular_contribution_price / price) // share amt
+close_price = input.float(defval = 5220.83, title='Last Closing Price') // idk a workaround, sell the top!!!!
+
+slowlookback = input.int(defval=220, title='Year High Lookback') // year, give or take
+fastlookback = input.int(defval=80, title='Quarterly High Lookback') // quarter, give or take
+
+double_dip = input(false, title='Double Dip') // loses some alpha on some combinations of multipliers, disable!!!!!
 
 show_trails = input(false, 'Show Dip Buy Trail Levels')
-show_info = input(false, 'Show Info')
+show_info = input(true, 'Show Info')
 
 start = input.time(defval=timestamp('01 Jun 1997 13:30 +0000'), title='Backtesting Start Time')
 end = input.time(defval=timestamp('30 Sep 2099 19:30 +0000'), title='Backtesting End Time')
@@ -26,12 +58,16 @@ time_cond = time > start and time < end
 newATH = false
 newrelative = false
 
-var dipboughthalf = false
+// vars, did we buy the dip already?
+
+//var dipboughthalf = false
 var dipbought1 = false
 var dipbought2 = false
 var dipbought3 = false
 var dipbought4 = false
 var dipbought5 = false
+
+//vars, did we double dip already?
 
 var dbldipbought1 = false
 var dbldipbought2 = false
@@ -39,15 +75,20 @@ var dbldipbought3 = false
 var dbldipbought4 = false
 var dbldipbought5 = false
 
+// trailing highs
+
 ph = ta.highest(slowlookback)
 trailing_high = ta.highest(fastlookback)
 
 plot(ph, title='Long High Lookback', style=plot.style_line, linewidth=2, color= ph[0] > ph[1] ? #f8e43300 : #ff5252a4, display=display.all - display.status_line)
+
+// new ATH
+
 if ph[0] > ph[1] 
     newATH := true
     newrelative := false
 
-    dipboughthalf := false
+    //dipboughthalf := false
     dipbought1 := false
     dipbought2 := false
     dipbought3 := false
@@ -65,19 +106,21 @@ else
 
 plot(trailing_high, title='Short High Lookback', style=plot.style_line, linewidth=2, color= trailing_high < ph and not newATH ? #8307f7fa : #e252ff00, display=display.all - display.status_line)
 
+// trail percentages
 
-trailhalf = ph  * 0.97
+//trailhalf = ph  * 0.97 // nonsense, loses alpha. deprecated since addition of monthly contribution
 trail1 = ph  * 0.90
 trail2 = ph  * 0.80
 trail3 = ph  * 0.70
 trail4 = ph  * 0.60
 trail5 = ph  * 0.50
 
-
+// info window vars
 
 var float totalinput = 0
 var float totaldb = 0
 
+var float totalmc = 0
 var float totalhalf = 0
 var float totalt1 = 0
 var float totalt2 = 0
@@ -85,8 +128,9 @@ var float totalt3 = 0
 var float totalt4 = 0
 var float totalt5 = 0
 
+//plot trails
 
-plot(trailhalf, title='R', style=plot.style_line, linewidth=1, color= show_trails ? #e9e9e963 : #ffffff00, display=display.all - display.status_line)
+//plot(trailhalf, title='R', style=plot.style_line, linewidth=1, color= show_trails ? #e9e9e963 : #ffffff00, display=display.all - display.status_line)
 plot(trail1, title='-10%', style=plot.style_line, linewidth=2, color= show_trails ? #3cb13c57 : #ffffff00, display=display.all - display.status_line)
 plot(trail2, title='-20%', style=plot.style_line, linewidth=2, color= show_trails ? #3cb13c83 : #ffffff00, display=display.all - display.status_line)
 plot(trail3, title='-30%', style=plot.style_line, linewidth=2, color= show_trails ? #3cb13cad : #ffffff00, display=display.all - display.status_line)
@@ -95,12 +139,16 @@ plot(trail5, title='-50%', style=plot.style_line, linewidth=2, color= show_trail
 
 show_trailing_high = false
 
+//new 80 day highs
+
 if trailing_high[0] > trailing_high[1]
     newrelative := true
     show_trailing_high := true
 else
     newrelative := false
     show_trailing_high := false
+
+//lol
 
 t1_multiplier_setting = drawdownmultiplier
 t2_multiplier_setting = t1_multiplier_setting * drawdownmultiplier
@@ -114,15 +162,23 @@ t5_multiplier_setting = t4_multiplier_setting * drawdownmultiplier
     //dipbought3 := false
     // dipbought4 := false
     //dipbought5 := false
+if time_cond and dayofweek(time) == 2 and dayofmonth(time) <= 8
+    strategy.entry("MC", strategy.long, regular_contribution/2, comment='MC: + '+str.tostring(str.format("{0,number,currency}", regular_contribution_price/2)))
+    
+    totalmc:= totalmc + 1
+    totalinput := totalinput + regular_contribution_price/2
+    //totaldb := totaldb + 1
 
-if price <= trailhalf and not dipboughthalf and time_cond 
-    strategy.entry("regular", strategy.long, regular_contribution, comment='R: + '+str.tostring(str.format("{0,number,currency}", regular_contribution_price)))
+// alpha killer, deprecated vvvvv
 
-    totalhalf := totalhalf + regular_contribution_price
-    totalinput := totalinput + regular_contribution_price
-    totaldb := totaldb + 1
+//if price <= trailhalf and not dipboughthalf and time_cond 
+  //  strategy.entry("regular2", strategy.long, regular_contribution, comment='R2: + '+str.tostring(str.format("{0,number,currency}", regular_contribution_price)))
 
-    dipboughthalf := true
+   // totalhalf := totalhalf + regular_contribution_price
+   // totalinput := totalinput + regular_contribution_price
+   // totaldb := totaldb + 1
+
+    //dipboughthalf := true
 
 if price < trail1 and not dipbought1 and time_cond
     strategy.entry("buy1", strategy.long, (regular_contribution * dipbuyfactor), comment='BUY1: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * dipbuyfactor))))
@@ -170,7 +226,7 @@ if price < trail5 and not dipbought5 and time_cond
 
     dipbought5 := true
 
-// DOUBLES
+// DOUBLE DIPPING ////// SHAVES POINTS OFF ALPHA WITH DEFAULT SETTINGS FUCK OUTTA HERE
 if double_dip 
     if price < trail1 and price > trail2 and not dbldipbought1 and dipbought1 and time_cond and newrelative
         strategy.entry("rbuy1", strategy.long, (regular_contribution* (dipbuyfactor * t1_multiplier_setting)), comment='DOUBLE DIP3: + '+str.tostring(str.format("{0,number,currency}", (regular_contribution_price * (dipbuyfactor * t1_multiplier_setting )))))
@@ -199,22 +255,26 @@ if double_dip
 
         dbldipbought3 := true
     
-var tbl = table.new(position.bottom_right, 1, 11)
+var tbl = table.new(position.bottom_right, 1, 12)
 
 if barstate.islast and show_info
-    table.cell(tbl, 0, 0, 'Total Input: ' + str.tostring(str.format("{0,number,currency}", totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#bff6fd63)
-    table.cell(tbl, 0, 1, 'Investment Value: ' + str.tostring(str.format("{0,number,currency}", strategy.netprofit+totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f7e)
-    table.cell(tbl, 0, 2, 'Profit/Input Ratio:' + str.tostring(str.format('{0,number,#.##}', strategy.netprofit/totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f59)
-    table.cell(tbl, 0, 3, '________________________________', text_color=#fffcfce3, text_size =size.large, bgcolor=#b8b5b563)
+   // table.cell(tbl, 0, 0, 'Total Input: ' + str.tostring(str.format("{0,number,currency}", totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#bff6fd63)
+   // table.cell(tbl, 0, 1, 'Investment Value: ' + str.tostring(str.format("{0,number,currency}", strategy.netprofit+totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f7e)
+    table.cell(tbl, 0, 1, 'Profit/Input Ratio:' + str.tostring(str.format('{0,number,#.##}', strategy.netprofit/totalinput)), text_color=#fffcfce3, text_size = size.large, bgcolor=#3bc42f59)
+    table.cell(tbl, 0, 2, '________________________________', text_color=#fffcfce3, text_size =size.large, bgcolor=#b8b5b563)
+    table.cell(tbl, 0, 3, 'Monthly Contributions Made: ' + str.tostring(totalmc), text_color=#fffcfce3, text_size =size.large, bgcolor=#b8b5b563)
     table.cell(tbl, 0, 4, '# Dips Bought: ' + str.tostring(totaldb), text_color=#fffcfce3, text_size =size.large, bgcolor=#b8b5b563)
-    table.cell(tbl, 0, 5, 'Total R: ' + str.tostring(str.format("{0,number,currency}", totalhalf)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
-    table.cell(tbl, 0, 6, 'Total DB1: ' + str.tostring(str.format("{0,number,currency}", totalt1)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
-    table.cell(tbl, 0, 7, 'Total DB2: ' + str.tostring(str.format("{0,number,currency}", totalt2)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
-    table.cell(tbl, 0, 8, 'Total DB3: ' + str.tostring(str.format("{0,number,currency}", totalt3)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
-    table.cell(tbl, 0, 9, 'Total DB4: ' + str.tostring(str.format("{0,number,currency}", totalt4)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
-    table.cell(tbl, 0, 10, 'Total DB5: ' + str.tostring(str.format("{0,number,currency}", totalt5)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    //table.cell(tbl, 0, 6, 'Total R: ' + str.tostring(str.format("{0,number,currency}", totalhalf)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+   // table.cell(tbl, 0, 7, 'Total DB1: ' + str.tostring(str.format("{0,number,currency}", totalt1)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+   // table.cell(tbl, 0, 8, 'Total DB2: ' + str.tostring(str.format("{0,number,currency}", totalt2)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    //table.cell(tbl, 0, 9, 'Total DB3: ' + str.tostring(str.format("{0,number,currency}", totalt3)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    //table.cell(tbl, 0, 10, 'Total DB4: ' + str.tostring(str.format("{0,number,currency}", totalt4)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
+    //table.cell(tbl, 0, 11, 'Total DB5: ' + str.tostring(str.format("{0,number,currency}", totalt5)), text_color=#fffcfce3, text_size = size.large, bgcolor=#b8b5b563)
     
 
 
 if price > close_price
     strategy.close_all()
+
+
+
