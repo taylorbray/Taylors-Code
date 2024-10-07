@@ -1,0 +1,285 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © taylorbray
+
+//@version=5
+indicator("high prob exits", overlay=true)
+
+// Settings
+
+session = input.session('0930-1000')
+dtime_warp = timeframe.period//input.string("1", 'Timeframe', options=["off", "1", "2", "3", "4", "5", "10", "15", "20", "30", "60", '120', '240', '480', "D", "W", '2W', "M", "3M", "Y"])
+calc = input.string('auto', title='Calculation Type Override', options=['auto', 'Absolute (default)', 'Sensitive', 'Forgiving', 'Uptrend Bias', 'Downtrend Bias'])
+multiplier = input.float(7, title='Outsized Move Multiplier')
+calcemaval = input.int(27, 'Bias EMA')
+trendemaval = input.int(129, 'Trend EMA (for "auto" setting)')
+tpemaval = input.int(9, 'Trailing Stop EMA')
+slippage = input.float(10, 'Trailing Stop Allowed Slippage (ticks)')
+abs_val = input.int(21, 'Heatmap Coefficient')
+
+mintick=syminfo.mintick*slippage
+
+inSession(sess) => na(time(timeframe.period, sess)) == false
+isDaily=timeframe.period=='D' or timeframe.period=='W' or timeframe.period=='2W'or timeframe.period=='M'or timeframe.period=='3M'or timeframe.period=='6M'or timeframe.period=='12M'
+ins = inSession(session) and not isDaily
+
+disp = not session.ispremarket and not session.ispostmarket // display condition
+
+if timeframe.period == '60' or timeframe.period == '120' or timeframe.period ==  '240' or timeframe.period ==  '480'
+    disp:= true
+
+// EMA Settings
+
+display_ema = input(false, 'Display Source EMA')
+
+
+// Color Settings
+
+color5 = input.color(#ffffff, title='Extreme Upside')
+color10 = input.color(#ffffff, title='Extreme Downside')
+
+
+
+// Call Data
+
+
+ticker = ticker.new(syminfo.prefix, syminfo.ticker, session=session.extended)
+price = request.security(ticker, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+calc_ema_value = request.security(syminfo.tickerid, timeframe.period, ta.ema(price, calcemaval)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+trend_ema_value = request.security(syminfo.tickerid, timeframe.period, ta.ema(price, trendemaval)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+tpema = request.security(syminfo.tickerid, timeframe.period, ta.ema(price, tpemaval)[barstate.isrealtime ? 1 : 0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+// Values
+
+
+
+dext=price-calc_ema_value
+bias_len = dext
+
+a = array.new_float(0)
+for i = 0 to 50
+    array.push(a, bias_len[i])
+
+a1 = array.new_float(0)
+for i = 0 to 50
+    if bias_len[i] > 0
+        array.push(a1, bias_len[i])
+
+a2 = array.new_float(0)
+for i = 0 to 50
+    if bias_len[i] < 0
+        array.push(a2, bias_len[i])
+
+/////////////////// Play with these coefficients below to dial in, if you want
+avg = math.abs(array.avg(a))/1.1
+avg_adv = math.abs(array.avg(a1))/4
+avg_dec= math.abs(array.avg(a2))/3.5 // inherent upside bias
+//abs = avg
+
+up_color = #ff0000ce
+down_color =#37ff05dc
+
+xu=false
+xd=false
+
+var cumxu = 0
+var cumxd = 0
+
+float upcalcmult = 1
+float downcalcmult = 1
+
+var calctype = ''
+
+if calc=='auto'
+    calctype:='auto'
+else
+    calctype:=calc
+
+upcross = ta.crossover(calc_ema_value, trend_ema_value)
+downcross = ta.crossunder(calc_ema_value, trend_ema_value)
+
+var uptrend = false
+var downtrend = false
+
+if close > calc_ema_value
+    uptrend := true
+    downtrend := false
+if close < calc_ema_value
+    downtrend := true
+    uptrend := false
+
+if calctype =='auto'
+    if uptrend
+        upcalcmult := 1
+        downcalcmult := 0.7
+    if downtrend
+        upcalcmult := 0.7
+        downcalcmult := 1
+
+
+if calctype=='Absolute'   
+    upcalcmult := 1
+    downcalcmult := 1
+
+if calctype=='Sensitive'   
+    upcalcmult := 0.7
+    downcalcmult := 0.7
+
+if calctype=='Forgiving'   
+    upcalcmult := 1.3
+    downcalcmult := 1.3
+
+if calctype=='Uptrend Bias' 
+    upcalcmult := 1.3
+    downcalcmult := 0.7
+
+if calctype=='Downtrend Bias'  
+    upcalcmult := 0.7
+    downcalcmult := 1.3
+
+if bias_len >= avg_adv*(multiplier*upcalcmult)
+    xu:=true
+if bias_len <= -avg_dec*(multiplier*downcalcmult)
+    xd:=true
+
+if xu== true
+    cumxu := cumxu + 1 
+else
+    cumxu := 0 
+if xd==true
+    cumxd := cumxd + 1
+else
+    cumxd := 0 
+
+
+if cumxu==1
+    up_color := #ff000067
+if cumxu==2
+    up_color := #ff000083
+if cumxu==3
+    up_color := #ff0000a6
+if cumxu>3
+    up_color := #ff0000e7
+
+if cumxd==1
+    down_color := #00ff6a62
+if cumxd==2
+    down_color := #00ff6a83
+if cumxd==3
+    down_color := #00ff6aa6
+if cumxd>3
+    down_color := #00ff6aea
+
+var longcon = false
+var shortcon = false
+
+if cumxu>3 and disp
+    longcon:=true
+if close<tpema-mintick and disp
+    longcon:=false
+
+if cumxd>3 and disp
+    shortcon:=true
+if close>tpema+mintick and disp
+    shortcon:=false
+
+candle_color=#ffffff00
+
+exitlong = false
+exitshort = false
+
+//if close>tpema
+    //if close>open
+     //   candle_color:=#c2c2c2da
+    //if close<open
+    //    candle_color:=#c2c2c2da
+///if close<tpema
+   // if close>open
+  //      candle_color:=#6d6c6cc9
+   // if close<open
+   //     candle_color:=#6d6c6cc9
+//if tpema>ema and longcon and cumxu>3 and disp
+   // candle_color:=color.yellow
+//if tpema<ema and shortcon and cumxd>3 and disp
+    //candle_color:=color.blue
+
+var sigcolor=color.white
+
+if longcon[1]==true and longcon[0]==false and disp
+    //candle_color:=#ff0000e7
+    exitlong:=true
+    alert('Exit longs/Enter shorts', alert.freq_once_per_bar_close )
+    if not ins
+        sigcolor:=#dd2929e8
+    else
+        sigcolor:=#f03df0e3
+if shortcon[1]==true and shortcon[0]==false and disp
+    //candle_color:=#00ff88e7
+    exitshort:=true
+    alert('Exit shorts/Enter longs', alert.freq_once_per_bar_close )
+    if not ins
+        sigcolor:=#3df06ae3
+    else
+        sigcolor:=#f03df0e3
+    
+triml=false
+trims=false
+if cumxu[1]>3 and cumxu[0]<3 and disp
+    triml:=true
+    alert('Trim longs', alert.freq_once_per_bar_close )
+    candle_color:=color.yellow
+    if not ins
+        sigcolor:=#dd2929e8
+    else
+        sigcolor:=#f03df0e3
+if cumxd[1]>3 and cumxd[0]<3 and disp
+    trims:=true
+    alert('Trim shorts', alert.freq_once_per_bar_close )
+    candle_color:=color.blue
+    if not ins
+        sigcolor:=#3df06ae3
+    else
+        sigcolor:=#f03df0e3
+
+float delta=0
+squeeze=false
+
+if longcon or shortcon
+    delta:=math.abs(tpema[0]-tpema[1])*100
+else
+    delta:=0
+
+if delta==0
+    squeeze:=false
+if delta>5
+    squeeze:=true
+
+//p0 = plot(tpema-mintick, 'long tp', color=longcon and disp ? #21c9f3 : #ffffff00, style=plot.style_stepline, display=display.all-display.status_line)
+//p1 = plot(tpema+mintick, 'short tp', color=shortcon and disp ? #f1108c : #ffffff00, style=plot.style_stepline, display=display.all-display.status_line)
+
+//p00 = plot(tpema[1]-mintick, 'long tp slippage', color=longcon and disp ? #21c9f3 : #ffffff00, style=plot.style_stepline, display=display.all-display.status_line)
+//p11 = plot(tpema[1]+mintick, 'short tp slippage', color=shortcon and disp ? #f1108c : #ffffff00, style=plot.style_stepline, display=display.all-display.status_line)
+
+//fill(p0,p00, color=longcon and disp ? #21c9f381 : #ffffff00)
+//fill(p1,p11, color=shortcon and disp ? #f1108c7e : #ffffff00)
+
+//plotshape(close, 'long seq signal', style=shape.triangleup, location=location.belowbar, color=longseq?#00ff88e7 :#ffffff00, text='long seq', textcolor=longseq?#ffffff :#ffffff00, size=size.small, display=display.all-display.status_line)
+//plotshape(close, 'short seq signal', style=shape.triangledown, location=location.abovebar, color=shortseq?#ff0000e7 :#ffffff00, text='short seq', textcolor=shortseq?#ffffff :#ffffff00, size=size.small, display=display.all-display.status_line)
+
+plot(trend_ema_value, 'Source EMA', color=#ffffffd3, display=display_ema?display.all-display.status_line:display.none)
+
+//plotshape(close, 'Up Boxes', style=shape.square, location=location.abovebar, color= xu and disp ? up_color:#ffffff00, size=size.auto, display=display.all - display.status_line)
+//plotshape(close, 'Down Boxes', style=shape.square, location=location.belowbar, color= xd and disp ? down_color:#ffffff00, size=size.auto, display=display.all - display.status_line)
+
+plotcandle(open, high, low, close, 'candles', color=candle_color, wickcolor=candle_color, bordercolor=candle_color, display=display.all-display.status_line)
+
+plotshape(tpema-mintick, 'long tp signal', style=shape.triangledown, location=location.absolute, color=exitlong?sigcolor :#ffffff00, text='', textcolor=exitlong?#ffffff :#ffffff00, size=size.tiny, display=display.all-display.status_line)
+plotshape(tpema+mintick, 'short tp signal', style=shape.triangleup, location=location.absolute, color=exitshort?sigcolor :#ffffff00, text='', textcolor=exitshort?#ffffff :#ffffff00, size=size.tiny, display=display.all-display.status_line)
+
+
+plotshape(ohlc4, 'trim longs', style=shape.xcross, location=location.absolute, color=triml?sigcolor :#ffffff00, text='', textcolor=exitlong?#ffffff :#ffffff00, size=size.tiny, display=display.all-display.status_line)
+plotshape(ohlc4, 'trim shorts', style=shape.xcross, location=location.absolute, color=trims?sigcolor :#ffffff00, text='', textcolor=exitshort?#ffffff :#ffffff00, size=size.tiny, display=display.all-display.status_line)
+
+
+//plotshape(tpema, 'triangles', style=shape.triangleup, location=location.absolute, color=exitshort?#18e41f :#ffffff00, text='', textcolor=#ffffff00, size=size.tiny, display=display.all-display.status_line)
+//plotshape(tpema, 'triangles2', style=shape.triangledown, location=location.absolute, color=exitlong?color.red :#ffffff00, text='', textcolor=#ffffff00, size=size.tiny, display=display.all-display.status_line)
+//plotshape(close, 'test signal', style=shape.circle, location=location.belowbar, color=uptrend?#29f30f :#ca0a0aec, size=size.tiny, display=display.all-display.status_line)
